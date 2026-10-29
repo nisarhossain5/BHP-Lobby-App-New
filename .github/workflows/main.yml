@@ -1,0 +1,38 @@
+name: Build BHP Lobby APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract project
+        run: |
+          mkdir source
+          ZIP_FILE=$(find . -maxdepth 1 -iname '*.zip' -type f | head -n 1)
+          test -n "$ZIP_FILE" || { echo "ZIP not found"; exit 1; }
+          unzip -o "$ZIP_FILE" -d source
+
+      - name: Build APK
+        run: |
+          SETTINGS=$(find source -name settings.gradle.kts -print -quit)
+          test -n "$SETTINGS" || { echo "Android project not found"; exit 1; }
+          DIR=$(dirname "$SETTINGS")
+          test -f "$DIR/gradlew" || { echo "gradlew missing"; exit 1; }
+          chmod +x "$DIR/gradlew"
+          cd "$DIR"
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BHP-Lobby-APK
+          path: source/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
